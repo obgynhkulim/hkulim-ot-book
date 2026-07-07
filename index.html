@@ -242,7 +242,6 @@
     </div>
 
     <!-- ==================== MODALS ==================== -->
-
     <div id="export-modal" class="hidden fixed inset-0 z-[100] modal-overlay flex items-center justify-center p-4">
         <div class="chalk-box w-full max-w-md p-6 relative text-center">
             <button onclick="app.closeModal('export-modal')" class="absolute top-4 right-4 text-white hover:text-red-400 p-1"><i data-lucide="x"></i></button>
@@ -442,32 +441,25 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ================= CONFIGURATION =================
-        const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-        
-        // 🚨🚨🚨 PASTE YOUR FIREBASE CODE BELOW THIS LINE 🚨🚨🚨
-        
+        // Here is your exact, working Firebase key!
         const firebaseConfig = {
-    apiKey: "AIzaSyDIJ-58I316DwaH8KQRkIC4JZitF-2mrb0",
-    authDomain: "hkulim-ot-book.firebaseapp.com",
-    projectId: "hkulim-ot-book",
-    storageBucket: "hkulim-ot-book.firebasestorage.app",
-    messagingSenderId: "67677248210",
-    appId: "1:67677248210:web:b1af2f26abfd1193116b0b"
-  };
-        
-        // 🚨🚨🚨 PASTE YOUR FIREBASE CODE ABOVE THIS LINE 🚨🚨🚨
-        
-        const firebaseConfig = firebaseConfigStr ? JSON.parse(firebaseConfigStr) : fallbackConfig;
+            apiKey: "AIzaSyDIJ-58I316DwaH8KQRkIC4JZitF-2mrb0",
+            authDomain: "hkulim-ot-book.firebaseapp.com",
+            projectId: "hkulim-ot-book",
+            storageBucket: "hkulim-ot-book.firebasestorage.app",
+            messagingSenderId: "67677248210",
+            appId: "1:67677248210:web:b1af2f26abfd1193116b0b"
+        };
         
         const firebaseApp = initializeApp(firebaseConfig);
         const auth = getAuth(firebaseApp);
         const db = getFirestore(firebaseApp);
         
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hkulim-ot-book';
+        const appId = 'hkulim-ot-book';
         let isFirebaseReady = false;
         let firestoreUnsubscribe = null;
 
@@ -484,7 +476,7 @@
 
         const app = {
             idleTimer: null,
-            idleTimeLimit: 15 * 60 * 1000, // 15 minutes
+            idleTimeLimit: 15 * 60 * 1000, // 15 minutes in milliseconds
 
             resetIdleTimer: function() {
                 if (this.idleTimer) clearTimeout(this.idleTimer);
@@ -505,16 +497,16 @@
                 this.addNotif("System initialized. Awaiting login.", "info");
                 this.setupIdleTracking();
                 
-                const initAuth = async () => {
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                    } catch (err) { console.error("Auth error", err); }
-                };
-                initAuth();
+                signInAnonymously(auth).catch(err => {
+                    console.error("Firebase connection error", err);
+                    const msgEl = document.getElementById('login-message');
+                    if (err.code === 'auth/configuration-not-found') {
+                        msgEl.innerHTML = "⚠️ <b>Authentication Not Enabled</b><br>Please go to Firebase Console -> Authentication -> Sign-in method, and enable 'Anonymous'.";
+                    } else {
+                        msgEl.innerHTML = "⚠️ <b>Database Connection Error</b><br>Please check your network connection.";
+                    }
+                    msgEl.classList.remove('hidden');
+                });
 
                 onAuthStateChanged(auth, (user) => {
                     isFirebaseReady = !!user;
@@ -527,16 +519,15 @@
             // ================= LOGIN & AUTH =================
             login: function(e) {
                 e.preventDefault();
-                const msgEl = document.getElementById('login-message');
-                msgEl.classList.add('hidden');
+                document.getElementById('login-message').classList.add('hidden');
                 
                 const email = document.getElementById('login-email').value.toLowerCase().trim();
                 const pass = document.getElementById('login-password').value;
+                const msgEl = document.getElementById('login-message');
                 
                 let role = 'viewer';
                 let name = 'Staff Viewer';
                 
-                // Check if Admin
                 if (email === 'obgynhkulim@gmail.com' || email === 'obgyn.hkulim@moh.gov.my') {
                     if (pass !== 'Hospital.kulim') { 
                         msgEl.innerText = 'Invalid Admin password. Please try again.';
@@ -546,7 +537,6 @@
                     role = 'admin';
                     name = 'O&G Admin';
                 } else {
-                    // Normal User (View Only)
                     if (pass !== '123') { 
                         msgEl.innerText = 'Invalid password. Use 123 for View Only access.';
                         msgEl.classList.remove('hidden');

@@ -558,53 +558,7 @@
             },
 
             // ================= LOGIN & AUTH =================
-            login: function(e) {
-                e.preventDefault();
-                document.getElementById('login-message').classList.add('hidden');
-                const email = document.getElementById('login-email').value.toLowerCase().trim();
-                const pass = document.getElementById('login-password').value;
-                
-                if (pass !== 'Hospital.kulim') { 
-                    const msgEl = document.getElementById('login-message');
-                    msgEl.innerText = 'Invalid password. Please try again.';
-                    msgEl.classList.remove('hidden');
-                    return; 
-                }
-                
-                let role = 'viewer';
-                let name = 'Staff Viewer';
-                
-                if (email === 'obgynhkulim@gmail.com' || email === 'obgyn.hkulim@moh.gov.my') {
-                    role = 'admin';
-                    name = 'O&G Admin';
-                } else if (email === 'widad313@gmail.com') {
-                     role = 'admin';
-                     name = 'Admin (Widad)';
-                } else {
-                    role = 'viewer';
-                    name = 'Staff (' + email.split('@')[0] + ')';
-                }
-                
-                state.currentUser = { email, role, name };
-                document.getElementById('user-name').innerText = name;
-                document.getElementById('user-role').innerText = role.toUpperCase();
-                document.getElementById('login-screen').classList.add('hidden');
-                
-                this.fetchData(); // Triggers connection to Firebase
-                this.applyRoleRestrictions();
-                this.resetIdleTimer();
-                this.navigate('dashboard');
-                
-                if (role === 'admin') {
-                    this.addNotif(`Welcome ${name}. You have Full Access.`, "info");
-                } else {
-                    this.addNotif(`Welcome. You are in View Only mode.`, "info");
-                }
-            },
-
-            logout: function(msg = '') { 
-                state.currentUser = null; 
-                if (this.idleTimer) clearTimeout(this.idleTimer);
+            // ================= LOGIN & AUTH ================= login: function(e) { e.preventDefault(); document.getElementById('login-message').classList.add('hidden'); const email = document.getElementById('login-email').value.toLowerCase().trim(); const pass = document.getElementById('login-password').value; const msgEl = document.getElementById('login-message'); let role = 'viewer'; let name = 'Staff Viewer'; // Check if user is an Admin if (email === 'obgynhkulim@gmail.com' || email === 'obgyn.hkulim@moh.gov.my') { if (pass !== 'Hospital.kulim') { msgEl.innerText = 'Invalid Admin password. Please try again.'; msgEl.classList.remove('hidden'); return; } role = 'admin'; name = 'O&G Admin'; } else { // Normal User (View Only) if (pass !== '123') { msgEl.innerText = 'Invalid password. Use 123 for View Only access.'; msgEl.classList.remove('hidden'); return; } role = 'viewer'; name = 'Staff (' + email.split('@')[0] + ')'; } state.currentUser = { email, role, name }; document.getElementById('user-name').innerText = name; document.getElementById('user-role').innerText = role.toUpperCase(); document.getElementById('login-screen').classList.add('hidden'); this.fetchData(); // Triggers connection to Firebase this.applyRoleRestrictions(); this.resetIdleTimer();;
                 
                 const msgEl = document.getElementById('login-message');
                 if (msg && typeof msg === 'string') {

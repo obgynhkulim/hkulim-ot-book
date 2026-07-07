@@ -1098,7 +1098,7 @@
                     document.getElementById('form-cancel-reason').required = false;
                 }
                 
-                this.toggleRefusalFields(); 
+                this.toggleRefusalFields(); // ensure sync
             },
             
             toggleRefusalFields: function() {
@@ -1147,6 +1147,11 @@
 
                 let finalDate = oldDate;
                 let finalStatus = stat;
+                
+                if ((stat === 'Cancelled' || stat === 'Delayed') && resched) {
+                    finalDate = resched;
+                    finalStatus = 'Scheduled'; 
+                }
                 
                 let currentOrder = Date.now();
                 if (!isNew) {

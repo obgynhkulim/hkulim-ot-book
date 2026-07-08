@@ -1,83 +1,646 @@
-<!-- ... existing code ... -->
-                document.getElementById('patient-modal').classList.remove('hidden');
-                lucide.createIcons();
-                this.applyRoleRestrictions();
-            },
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Kulim OT Booking</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .hidden { display: none !important; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Toast Notification Animations */
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .toast-animate { animation: slideIn 0.3s ease-out forwards; }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex flex-col overflow-hidden">
 
-            editFromDetails: function() {
-                const b = state.bookings.find(x=>x.id===state.currentPatientId);
-                if(b) {
-                    // Close the patient details window first!
-                    this.closeModal('patient-modal');
-                    // Then open the edit form
-                    this.openModal(b.type);
-                    document.getElementById('form-id').value = b.id;
-                    document.getElementById('form-original-date').value = b.date;
-                    
-                    document.getElementById('form-subtype').value = b.subtype; 
-<!-- ... existing code ... -->
-            toggleRefusalFields: function() {
-                const isRefused = document.getElementById('form-patient-refuse').checked;
-                const fields = document.getElementById('refusal-fields');
-                const reasonInput = document.getElementById('form-refusal-reason');
-                
-                const isRescheduleVisible = !document.getElementById('reschedule-container').classList.contains('hidden');
-                
-                if(isRefused && isRescheduleVisible) {
-                    fields.classList.remove('hidden');
-                    reasonInput.required = true;
-                } else {
-                    fields.classList.add('hidden');
-                    reasonInput.required = false;
-                }
-            },
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md mx-4">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="hospital" class="w-8 h-8"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-900">Hospital Kulim</h1>
+                <p class="text-gray-500 mt-1">O&G Dept - OT Booking System</p>
+            </div>
+
+            <div id="login-error" class="hidden mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm flex items-center">
+                <i data-lucide="alert-circle" class="w-4 h-4 mr-2"></i>
+                <span id="login-error-text">Invalid credentials</span>
+            </div>
+
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email or Role</label>
+                    <input type="text" id="login-email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. obgynhkulim@gmail.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="login-password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center">
+                    <i data-lucide="log-in" class="w-4 h-4 mr-2"></i> Sign In
+                </button>
+            </form>
+            <div class="mt-6 text-center text-sm text-gray-500">
+                Staff View: Any Email + Password '123'
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APPLICATION (Hidden by default) -->
+    <div id="app-container" class="hidden h-full flex flex-col">
+        
+        <!-- Header -->
+        <header class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-2 rounded-lg text-white">
+                    <i data-lucide="activity" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-gray-900 leading-tight">O&G Theatre Booking</h1>
+                    <p class="text-xs text-gray-500">Hospital Kulim</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-right hidden sm:block">
+                    <p id="user-role-display" class="text-sm font-semibold text-gray-900">Admin User</p>
+                    <p class="text-xs text-green-600 flex items-center justify-end gap-1">
+                        <span class="w-2 h-2 rounded-full bg-green-500"></span> Online
+                    </p>
+                </div>
+                <button id="btn-logout" class="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Log Out">
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 overflow-auto p-4 md:p-6">
             
-            saveBooking: async function(e) {
-                e.preventDefault();
-                
-                if (state.currentUser.role !== 'admin') {
-                    this.addNotif("Unauthorized. Only Admins can save or edit data.", "urgent");
-                    return;
+            <!-- Action Bar -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Elective List</h2>
+                <div class="flex gap-2 w-full sm:w-auto">
+                    <button id="btn-add-case" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-sm font-medium transition-colors flex items-center justify-center gap-2">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Add Case
+                    </button>
+                </div>
+            </div>
+
+            <!-- Data Table Card -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200 text-gray-500 text-sm">
+                                <th class="p-4 font-medium">Date</th>
+                                <th class="p-4 font-medium">Patient Name</th>
+                                <th class="p-4 font-medium">IC Number</th>
+                                <th class="p-4 font-medium">Procedure</th>
+                                <th class="p-4 font-medium">Surgeon</th>
+                                <th class="p-4 font-medium">Status</th>
+                                <th class="p-4 font-medium text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="divide-y divide-gray-100">
+                            <!-- Rows will be injected by JavaScript -->
+                            <tr><td colspan="7" class="p-8 text-center text-gray-400">Loading data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ADD/EDIT BOOKING MODAL -->
+    <div id="booking-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-[60] p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
+                <h3 class="text-lg font-bold text-gray-900" id="modal-title">Add New Case</h3>
+                <button class="close-modal text-gray-400 hover:text-gray-600 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            
+            <div class="p-5 overflow-y-auto flex-1 custom-scrollbar">
+                <form id="booking-form" class="space-y-4">
+                    <input type="hidden" id="form-id">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Patient Name *</label>
+                            <input type="text" id="form-name" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">IC Number *</label>
+                            <input type="text" id="form-ic" required placeholder="e.g. 880101-02-1234" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Proposed Operation Date *</label>
+                            <input type="date" id="form-date" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Surgeon In Charge</label>
+                            <input type="text" id="form-surgeon" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
+                            <input type="text" id="form-diagnosis" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Procedure *</label>
+                            <input type="text" id="form-procedure" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Booking Status</label>
+                        <select id="form-status" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white">
+                            <option value="Scheduled">Scheduled</option>
+                            <option value="Delayed / Rescheduled">Delayed / Rescheduled</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                        
+                        <!-- Postponement Reason (Hidden by default) -->
+                        <div id="delay-reason-container" class="mt-3 hidden bg-red-50 p-3 rounded border border-red-200">
+                            <label class="block text-sm font-medium text-red-800 mb-1">Reason for Cancellation / Reschedule (e.g., URTI)</label>
+                            <input type="text" id="form-delay-reason" placeholder="Enter reason here..." class="w-full px-3 py-2 border border-red-300 rounded-md focus:ring-red-500 focus:border-red-500">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="p-5 border-t border-gray-100 bg-gray-50 rounded-b-xl flex justify-end gap-3 shrink-0">
+                <button type="button" class="close-modal px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+                <button type="submit" form="booking-form" id="btn-save-booking" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center">
+                    <i data-lucide="save" class="w-4 h-4 mr-2"></i> Save Booking
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PATIENT DETAILS MODAL -->
+    <div id="details-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-[60] p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+            <div class="bg-blue-600 p-5 flex justify-between items-center text-white">
+                <h3 class="text-lg font-bold flex items-center gap-2">
+                    <i data-lucide="user" class="w-5 h-5"></i> Patient Details
+                </h3>
+                <button class="close-details-modal text-white/80 hover:text-white p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <p class="text-gray-500 mb-1">Name</p>
+                        <p class="font-medium text-gray-900" id="detail-name">-</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 mb-1">IC Number</p>
+                        <p class="font-medium text-gray-900" id="detail-ic">-</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 mb-1">Operation Date</p>
+                        <p class="font-medium text-gray-900" id="detail-date">-</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 mb-1">Status</p>
+                        <span id="detail-status" class="px-2 py-1 rounded-full text-xs font-medium">-</span>
+                    </div>
+                    <div class="col-span-2">
+                        <p class="text-gray-500 mb-1">Diagnosis</p>
+                        <p class="font-medium text-gray-900" id="detail-diagnosis">-</p>
+                    </div>
+                    <div class="col-span-2">
+                        <p class="text-gray-500 mb-1">Procedure</p>
+                        <p class="font-medium text-gray-900" id="detail-procedure">-</p>
+                    </div>
+                    <div class="col-span-2">
+                        <p class="text-gray-500 mb-1">Surgeon In Charge</p>
+                        <p class="font-medium text-gray-900" id="detail-surgeon">-</p>
+                    </div>
+                    
+                    <div id="detail-delay-box" class="col-span-2 hidden bg-red-50 p-3 rounded border border-red-100 mt-2">
+                        <p class="text-red-600 text-xs font-bold mb-1">REASON FOR DELAY/CANCELLATION</p>
+                        <p class="font-medium text-red-900" id="detail-delay-reason">-</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+                <button id="btn-edit-from-details" class="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center shadow-sm">
+                    <i data-lucide="edit" class="w-4 h-4 mr-2"></i> Edit Booking
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-2"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        // 🚨🚨🚨 YOUR EXACT FIREBASE CONFIGURATION 🚨🚨🚨
+        const firebaseConfig = {
+            apiKey: "AIzaSyDIJ-58I316DwaH8KQRkIC4JZitF-2mrb0",
+            authDomain: "hkulim-ot-book.firebaseapp.com",
+            projectId: "hkulim-ot-book",
+            storageBucket: "hkulim-ot-book.firebasestorage.app",
+            messagingSenderId: "67677248210",
+            appId: "1:67677248210:web:b1af2f26abfd1193116b0b"
+        };
+        // 🚨🚨🚨 END OF CONFIGURATION 🚨🚨🚨
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Application State
+        let currentUserRole = null; // 'admin' or 'viewer'
+        let bookingsData = [];
+        let currentEditingId = null;
+        let idleTime = 0;
+
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // --- 1. AUTHENTICATION & LOGIN LOGIC ---
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value.trim().toLowerCase();
+            const pass = document.getElementById('login-password').value;
+            const errorBox = document.getElementById('login-error');
+            const errorText = document.getElementById('login-error-text');
+            const submitBtn = e.target.querySelector('button');
+
+            errorBox.classList.add('hidden');
+            submitBtn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 mr-2 animate-spin"></i> Authenticating...';
+            lucide.createIcons();
+
+            try {
+                // Connect to Firebase Anonymous Auth
+                await signInAnonymously(auth);
+
+                // Role Logic based on input
+                if ((email === 'obgynhkulim@gmail.com' || email === 'obgyn.hkulim@moh.gov.my') && pass === 'Hospital.kulim') {
+                    currentUserRole = 'admin';
+                } else if (pass === '123') {
+                    currentUserRole = 'viewer';
+                } else {
+                    throw new Error("Invalid password.");
                 }
 
-                // Check for duplicates before proceeding
-                const id = document.getElementById('form-id').value || 'BK-'+Date.now();
-                const icNum = document.getElementById('form-ic').value;
-                const oldDate = document.getElementById('form-op-date').value;
+                // Success! Setup UI based on role
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('app-container').classList.remove('hidden');
                 
-                const isDuplicate = state.bookings.some(b => 
-                    b.id !== id && 
-                    b.icNumber === icNum && 
-                    b.date === oldDate
+                document.getElementById('user-role-display').innerText = currentUserRole === 'admin' ? 'Administrator' : 'Staff Viewer';
+                
+                if (currentUserRole !== 'admin') {
+                    document.getElementById('btn-add-case').classList.add('hidden'); // Hide Add button for viewers
+                }
+
+                // Start Data Listener and Idle Timer
+                setupDatabaseListener();
+                resetIdleTimer();
+
+            } catch (err) {
+                console.error(err);
+                errorBox.classList.remove('hidden');
+                errorText.innerText = err.code === 'auth/operation-not-allowed' 
+                    ? "Anonymous Auth is disabled in Firebase! Please enable it." 
+                    : "Login failed. Check your password.";
+            } finally {
+                submitBtn.innerHTML = '<i data-lucide="log-in" class="w-4 h-4 mr-2"></i> Sign In';
+                lucide.createIcons();
+            }
+        });
+
+        // Auto Logout after 15 minutes of inactivity
+        function timerIncrement() {
+            idleTime = idleTime + 1;
+            if (idleTime > 14) { // 15 minutes
+                logout();
+            }
+        }
+        function resetIdleTimer() {
+            idleTime = 0;
+        }
+        setInterval(timerIncrement, 60000); // 1 minute
+        ['mousemove', 'keypress', 'click', 'scroll', 'touchstart'].forEach(evt => 
+            document.addEventListener(evt, resetIdleTimer, true)
+        );
+
+        function logout() {
+            currentUserRole = null;
+            document.getElementById('app-container').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('login-password').value = '';
+            showToast("You have been logged out for security.", "info");
+        }
+        document.getElementById('btn-logout').addEventListener('click', logout);
+
+        // --- 2. DATABASE & RENDERING LOGIC ---
+        function setupDatabaseListener() {
+            const q = query(collection(db, "bookings"), orderBy("date", "asc"));
+            
+            // Real-time listener for Firestore
+            onSnapshot(q, (snapshot) => {
+                bookingsData = [];
+                snapshot.forEach((doc) => {
+                    bookingsData.push({ id: doc.id, ...doc.data() });
+                });
+                renderTable();
+            }, (error) => {
+                console.error("Error fetching data:", error);
+                showToast("Failed to connect to database.", "error");
+            });
+        }
+
+        function getStatusColor(status) {
+            switch(status) {
+                case 'Scheduled': return 'bg-blue-100 text-blue-800';
+                case 'Completed': return 'bg-green-100 text-green-800';
+                case 'Delayed / Rescheduled': return 'bg-amber-100 text-amber-800';
+                case 'Cancelled': return 'bg-red-100 text-red-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            if (bookingsData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-gray-500">No bookings found.</td></tr>';
+                return;
+            }
+
+            bookingsData.forEach(booking => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50 transition-colors cursor-pointer border-b border-gray-100';
+                tr.onclick = (e) => {
+                    // Prevent row click if clicking a button inside it
+                    if(!e.target.closest('button')) {
+                        openDetails(booking);
+                    }
+                };
+
+                tr.innerHTML = `
+                    <td class="p-4 whitespace-nowrap text-sm text-gray-900">${booking.date}</td>
+                    <td class="p-4 font-medium text-gray-900">${booking.name}</td>
+                    <td class="p-4 text-sm text-gray-500">${booking.icNumber}</td>
+                    <td class="p-4 text-sm text-gray-900">${booking.procedure}</td>
+                    <td class="p-4 text-sm text-gray-500">${booking.surgeon || '-'}</td>
+                    <td class="p-4">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}">
+                            ${booking.status}
+                        </span>
+                    </td>
+                    <td class="p-4 text-right">
+                        <button onclick="deleteBooking(event, '${booking.id}')" class="text-gray-400 hover:text-red-600 p-1 rounded ${currentUserRole !== 'admin' ? 'hidden' : ''}" title="Delete">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            lucide.createIcons();
+        }
+
+        // --- 3. MODALS & FORMS LOGIC ---
+        const modal = document.getElementById('booking-modal');
+        const detailsModal = document.getElementById('details-modal');
+        const form = document.getElementById('booking-form');
+
+        // Status change toggles delay reason field
+        document.getElementById('form-status').addEventListener('change', function() {
+            const delayBox = document.getElementById('delay-reason-container');
+            if (this.value === 'Delayed / Rescheduled' || this.value === 'Cancelled') {
+                delayBox.classList.remove('hidden');
+            } else {
+                delayBox.classList.add('hidden');
+                document.getElementById('form-delay-reason').value = ''; // clear it
+            }
+        });
+
+        // Open Add Modal
+        document.getElementById('btn-add-case').addEventListener('click', () => {
+            currentEditingId = null;
+            form.reset();
+            document.getElementById('modal-title').innerText = "Add New Case";
+            document.getElementById('delay-reason-container').classList.add('hidden');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        });
+
+        // Open Details Modal
+        function openDetails(booking) {
+            document.getElementById('detail-name').innerText = booking.name;
+            document.getElementById('detail-ic').innerText = booking.icNumber;
+            document.getElementById('detail-date').innerText = booking.date;
+            document.getElementById('detail-diagnosis').innerText = booking.diagnosis || '-';
+            document.getElementById('detail-procedure').innerText = booking.procedure;
+            document.getElementById('detail-surgeon').innerText = booking.surgeon || '-';
+            
+            const statusBadge = document.getElementById('detail-status');
+            statusBadge.innerText = booking.status;
+            statusBadge.className = `px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`;
+
+            const delayBox = document.getElementById('detail-delay-box');
+            if (booking.delayReason) {
+                delayBox.classList.remove('hidden');
+                document.getElementById('detail-delay-reason').innerText = booking.delayReason;
+            } else {
+                delayBox.classList.add('hidden');
+            }
+
+            // Hide edit button in details if not admin
+            document.getElementById('btn-edit-from-details').style.display = currentUserRole === 'admin' ? 'flex' : 'none';
+
+            // Store ID temporarily for the Edit button
+            window.currentViewingBooking = booking;
+
+            detailsModal.classList.remove('hidden');
+            detailsModal.classList.add('flex');
+        }
+
+        // EDIT FIX: Close Details, Open Form
+        document.getElementById('btn-edit-from-details').addEventListener('click', () => {
+            const b = window.currentViewingBooking;
+            if(!b) return;
+
+            // 1. Close the details window
+            detailsModal.classList.add('hidden');
+            detailsModal.classList.remove('flex');
+
+            // 2. Open the edit form window
+            currentEditingId = b.id;
+            document.getElementById('modal-title').innerText = "Edit Case";
+            
+            // Populate form
+            document.getElementById('form-name').value = b.name;
+            document.getElementById('form-ic').value = b.icNumber;
+            document.getElementById('form-date').value = b.date;
+            document.getElementById('form-surgeon').value = b.surgeon || '';
+            document.getElementById('form-diagnosis').value = b.diagnosis || '';
+            document.getElementById('form-procedure').value = b.procedure;
+            document.getElementById('form-status').value = b.status;
+            
+            if(b.delayReason) {
+                document.getElementById('delay-reason-container').classList.remove('hidden');
+                document.getElementById('form-delay-reason').value = b.delayReason;
+            } else {
+                document.getElementById('delay-reason-container').classList.add('hidden');
+                document.getElementById('form-delay-reason').value = '';
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        });
+
+        // Close Modals logic
+        document.querySelectorAll('.close-modal').forEach(btn => {
+            btn.addEventListener('click', () => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            });
+        });
+        document.querySelectorAll('.close-details-modal').forEach(btn => {
+            btn.addEventListener('click', () => {
+                detailsModal.classList.add('hidden');
+                detailsModal.classList.remove('flex');
+            });
+        });
+
+        // Save Booking (Add or Update)
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (currentUserRole !== 'admin') return;
+
+            const btn = document.getElementById('btn-save-booking');
+            const originalBtnHtml = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 mr-2 animate-spin"></i> Saving...';
+            lucide.createIcons();
+
+            try {
+                const bookingData = {
+                    name: document.getElementById('form-name').value.toUpperCase(),
+                    icNumber: document.getElementById('form-ic').value,
+                    date: document.getElementById('form-date').value,
+                    surgeon: document.getElementById('form-surgeon').value,
+                    diagnosis: document.getElementById('form-diagnosis').value,
+                    procedure: document.getElementById('form-procedure').value.toUpperCase(),
+                    status: document.getElementById('form-status').value,
+                    delayReason: document.getElementById('form-delay-reason').value,
+                    updatedAt: new Date().toISOString()
+                };
+
+                // DUPLICATE PROTECTION LOGIC
+                // Check if a patient with the exact same IC and Date already exists (excluding the one we are currently editing)
+                const isDuplicate = bookingsData.some(b => 
+                    b.id !== currentEditingId && // Don't check against itself during edit
+                    b.icNumber === bookingData.icNumber && 
+                    b.date === bookingData.date
                 );
 
                 if (isDuplicate) {
-                    this.addNotif(`🚨 Duplicate Entry: Patient with IC ${icNum} is already scheduled on ${oldDate}.`, "urgent");
-                    const errBtn = e.target.querySelector('button[type="submit"]');
-                    const errOrigText = errBtn.innerHTML;
-                    errBtn.innerHTML = '<i data-lucide="alert-triangle" class="w-4 h-4 inline mr-2"></i> Duplicate Detected';
-                    errBtn.classList.add('bg-[#E57373]', 'text-white', 'border-[#E57373]');
+                    btn.innerHTML = originalBtnHtml; // Reset button
                     lucide.createIcons();
-                    setTimeout(() => {
-                        errBtn.innerHTML = errOrigText;
-                        errBtn.classList.remove('bg-[#E57373]', 'text-white', 'border-[#E57373]');
-                        lucide.createIcons();
-                    }, 4000);
-                    return;
+                    showToast(`🚨 Duplicate Entry: Patient with IC ${bookingData.icNumber} is already scheduled on ${bookingData.date}.`, "error");
+                    return; // Stop saving!
                 }
 
-                const btn = e.target.querySelector('button[type="submit"]'); 
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '<i data-lucide="loader" class="animate-spin w-4 h-4 inline mr-2"></i> Saving...';
-                lucide.createIcons();
-                
-                const isNew = !document.getElementById('form-id').value;
-                const stat = document.getElementById('form-status').value;
-                const bookingDate = document.getElementById('form-booking-date').value;
-                const originalDate = document.getElementById('form-original-date').value;
-                
-                const resched = document.getElementById('form-reschedule-date').value;
-<!-- ... existing code ... -->
-```
+                if (currentEditingId) {
+                    // Update existing
+                    await updateDoc(doc(db, "bookings", currentEditingId), bookingData);
+                    showToast("Booking updated successfully!", "success");
+                } else {
+                    // Add new
+                    bookingData.createdAt = new Date().toISOString();
+                    await addDoc(collection(db, "bookings"), bookingData);
+                    showToast("New case added successfully!", "success");
+                }
 
-Just copy and paste these blocks over their original sections, and you will be able to edit and protect against duplicates flawlessly!
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            } catch (err) {
+                console.error("Error saving: ", err);
+                showToast("Error saving booking. Check connection.", "error");
+            } finally {
+                btn.innerHTML = originalBtnHtml;
+                lucide.createIcons();
+            }
+        });
+
+        // Delete Booking
+        window.deleteBooking = async function(e, id) {
+            e.stopPropagation(); // Prevent opening details modal
+            if (currentUserRole !== 'admin') return;
+            
+            if (confirm("Are you sure you want to delete this case? This cannot be undone.")) {
+                try {
+                    await deleteDoc(doc(db, "bookings", id));
+                    showToast("Booking deleted.", "info");
+                } catch (err) {
+                    console.error("Error deleting: ", err);
+                    showToast("Failed to delete booking.", "error");
+                }
+            }
+        }
+
+        // Toast Notification System
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bg = 'bg-white border-l-4 border-blue-500';
+            let icon = '<i data-lucide="info" class="w-5 h-5 text-blue-500"></i>';
+            
+            if(type === 'success') {
+                bg = 'bg-white border-l-4 border-green-500';
+                icon = '<i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>';
+            } else if(type === 'error') {
+                bg = 'bg-white border-l-4 border-red-500';
+                icon = '<i data-lucide="alert-triangle" class="w-5 h-5 text-red-500"></i>';
+            }
+
+            toast.className = `flex items-center gap-3 p-4 rounded shadow-lg text-sm font-medium text-gray-700 ${bg} toast-animate max-w-sm`;
+            toast.innerHTML = `${icon} <span>${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                toast.style.transition = 'all 0.3s ease-out';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+    </script>
+</body>
+</html>
